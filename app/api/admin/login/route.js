@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import parseJson from '@/lib/safeRequest'
 
-// Read admin password from env for production; keep fallback for local/dev convenience
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'winshop2025'
+// Read admin password from env for production. Do NOT use a hardcoded fallback.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
+
+if (!ADMIN_PASSWORD) {
+  // Fail fast during server startup to avoid accidental unsecured deploys.
+  // In serverless environments this will surface as an error when the file is imported.
+  throw new Error('ADMIN_PASSWORD environment variable is required')
+}
 
 export async function POST(request) {
   try {
