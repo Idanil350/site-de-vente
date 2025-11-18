@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/mongoose'
 import Product from '@/models/Product'
+import parseJson from '@/lib/safeRequest'
 
 export async function GET() {
   try {
@@ -15,7 +16,10 @@ export async function GET() {
 export async function POST(request) {
   try {
     await dbConnect()
-    const body = await request.json()
+    const body = await parseJson(request)
+
+    if (!body) return NextResponse.json({ success: false, error: 'Empty body' }, { status: 400 })
+
     const product = await Product.create(body)
     return NextResponse.json({ success: true, data: product }, { status: 201 })
   } catch (error) {

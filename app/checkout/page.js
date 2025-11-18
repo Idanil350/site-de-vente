@@ -5,9 +5,6 @@ import Header from '@/components/Header'
 import { useCartStore } from '@/lib/cartStore'
 import Image from 'next/image'
 import { Package, CheckCircle } from 'lucide-react'
-import { loadStripe } from '@stripe/stripe-js'
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
 
 const exchangeRates = {
   EUR: 1,
@@ -44,7 +41,6 @@ export default function CheckoutPage() {
     name: '',
     phone: '',
     city: 'Douala',
-    paymentMethod: 'whatsapp',
   })
 
   const formatPrice = (price) => {
@@ -60,48 +56,29 @@ export default function CheckoutPage() {
 
   const total = getTotalPrice()
 
-const handleSubmit = async (e) => {
-  e.preventDefault()
-  setLoading(true)
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
 
-  try {
-    const orderData = {
-      customer: {
-        name: formData.name,
-        phone: formData.phone,
-        city: formData.city,
-      },
-      items: items.map(item => ({
-        productId: item._id,
-        name: item.name,
-        description: item.description,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.image,
-      })),
-      totalAmount: total,
-      currency: 'EUR',
-    }
-
-    if (formData.paymentMethod === 'stripe') {
-      // Paiement Stripe - Redirection vers Stripe
-      const res = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, orderData }),
-      })
-
-      const data = await res.json()
-
-      if (data.sessionId) {
-        const stripe = await stripePromise
-        // Redirection vers Stripe (la commande sera créée après paiement)
-        await stripe.redirectToCheckout({ sessionId: data.sessionId })
-      } else {
-        alert('Erreur lors de la création de la session Stripe')
+    try {
+      const orderData = {
+        customer: {
+          name: formData.name,
+          phone: formData.phone,
+          city: formData.city,
+        },
+        items: items.map(item => ({
+          productId: item._id,
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image,
+        })),
+        totalAmount: total,
+        currency: 'EUR',
       }
-    } else {
-      // Paiement WhatsApp/Mobile Money - Enregistrement immédiat
+
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,14 +94,13 @@ const handleSubmit = async (e) => {
       } else {
         alert('Erreur: ' + data.error)
       }
+    } catch (error) {
+      alert('Erreur lors de la commande')
+      console.error(error)
+    } finally {
+      setLoading(false)
     }
-  } catch (error) {
-    alert('Erreur lors de la commande')
-    console.error(error)
-  } finally {
-    setLoading(false)
   }
-}
 
   const whatsappNumber = '+237672628383'
   const whatsappMessage = orderNumber 
@@ -170,7 +146,7 @@ const handleSubmit = async (e) => {
               <ol className="space-y-2 text-gray-700">
                 <li>1. Contactez-nous sur WhatsApp</li>
                 <li>2. Nous vous donnerons le prix total</li>
-                <li>3. Payez via Mobile Money</li>
+                <li>3. Payez via Mobile Money/Orange Money</li>
                 <li>4. Nous commandons vos produits en Chine</li>
                 <li>5. Vous payez la douane quand le colis arrive</li>
               </ol>
@@ -257,24 +233,9 @@ const handleSubmit = async (e) => {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mode de paiement *
-                  </label>
-                  <select
-                    required
-                    value={formData.paymentMethod}
-                    onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900"
-                  >
-                    <option value="whatsapp">WhatsApp / Mobile Money</option>
-                    <option value="stripe">Carte bancaire (Stripe)</option>
-                  </select>
-                </div>
-
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
                   <p className="text-sm text-yellow-800">
-                    <strong>Note:</strong> Après votre commande, contactez-nous sur WhatsApp pour finaliser le paiement via Mobile Money.
+                    <strong>Note:</strong> Après votre commande, contactez-nous sur WhatsApp pour finaliser votre paiement .
                   </p>
                 </div>
 

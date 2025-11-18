@@ -22,6 +22,7 @@ useEffect(() => {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [editingProductId, setEditingProductId] = useState(null)
   const [currency, setCurrency] = useState('EUR')
   
   const [formData, setFormData] = useState({
@@ -30,9 +31,29 @@ useEffect(() => {
     price: '',
     category: 'chaussures-homme',
     image: '',
+    images: [],
     stock: '',
     currency: 'EUR'
   })
+
+  // Helper to open form for editing
+  const openEditForm = (product) => {
+    setEditingProductId(product._id?.toString ? product._id.toString() : String(product._id))
+    setFormData({
+      name: product.name || '',
+      description: product.description || '',
+      price: product.price != null ? product.price : '',
+      category: product.category || 'chaussures-homme',
+      image: product.image || '',
+      images: product.images && product.images.length > 0 ? product.images : (product.image ? [product.image] : []),
+      stock: product.stock != null ? product.stock : '',
+      currency: product.currency || 'EUR',
+      vendorName: product.vendorName || '',
+      vendorPhone: product.vendorPhone || '',
+      vendorEmail: product.vendorEmail || ''
+    })
+    setShowForm(true)
+  }
 
   useEffect(() => {
     fetchProducts()
@@ -53,30 +74,48 @@ useEffect(() => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!formData.image) {
-      alert('Veuillez uploader une image')
-      return
-    }
+    // don't require `formData.image` here: we support multiple images in `formData.images`
 
     setLoading(true)
 
     try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          price: parseFloat(formData.price),
-          stock: parseInt(formData.stock)
-        }),
-      })
+      // Ensure at least one image is present (use images[0] or image fallback)
+      const images = (formData.images && formData.images.filter(Boolean)) || []
+      if (!images || images.length === 0) {
+        alert('Veuillez uploader au moins une photo (Photo 1)')
+        setLoading(false)
+        return
+      }
+
+      const payload = {
+        ...formData,
+        images,
+        // maintain single `image` for backward compatibility
+        image: images[0] || formData.image || '',
+        price: parseFloat(formData.price),
+        stock: parseInt(formData.stock)
+      }
+
+      let res
+      if (editingProductId) {
+        // Update existing product
+        res = await fetch(`/api/products/${encodeURIComponent(editingProductId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      } else {
+        res = await fetch('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      }
 
       const data = await res.json()
-      
+
       if (data.success) {
-        alert('✅ Produit ajouté avec succès !')
+        alert(editingProductId ? '✅ Produit mis à jour !' : '✅ Produit ajouté avec succès !')
         setFormData({
           name: '',
           description: '',
@@ -87,6 +126,7 @@ useEffect(() => {
           currency: 'EUR'
         })
         setShowForm(false)
+        setEditingProductId(null)
         fetchProducts()
       } else {
         alert('❌ Erreur: ' + data.error)
@@ -103,15 +143,26 @@ useEffect(() => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) return
 
     try {
-      const res = await fetch(`/api/products/${id}`, {
+      const sid = id?.toString ? id.toString() : String(id)
+      console.log('[admin] deleting product id=', sid)
+      const res = await fetch(`/api/products/${encodeURIComponent(sid)}`, {
         method: 'DELETE',
       })
-      
-      const data = await res.json()
-      if (data.success) {
+      // Try to parse JSON, but handle non-JSON responses gracefully
+      let data = null
+      try {
+        data = await res.json()
+      } catch (err) {
+        console.warn('Réponse non JSON lors de la suppression:', err)
+      }
+
+      if (res.ok && (!data || data.success !== false)) {
         alert('✅ Produit supprimé !')
         fetchProducts()
+        return
       }
+
+      alert('❌ Erreur lors de la suppression' + (data?.error ? ': ' + data.error : ''))
     } catch (error) {
       alert('❌ Erreur lors de la suppression')
     }
@@ -156,10 +207,21 @@ useEffect(() => {
           <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
             <h2 className="text-2xl font-bold mb-6 text-gray-900">Nouveau Produit</h2>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <ImageUpload
-                currentImage={formData.image}
-                onImageUploaded={(url) => setFormData({...formData, image: url})}
-              />
+              <div className="grid md:grid-cols-3 gap-4">
+                {[0,1,2].map((i) => (
+                  <div key={i} className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Photo {i+1} {i===0? '*': '(optionnel)'} </label>
+                    <ImageUpload
+                      currentImage={formData.images?.[i] || ''}
+                      onImageUploaded={(url) => {
+                        const imgs = [...(formData.images || [])]
+                        imgs[i] = url
+                        setFormData({...formData, images: imgs})
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
 
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
@@ -224,6 +286,27 @@ useEffect(() => {
                     placeholder="50"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nom du vendeur</label>
+                  <input
+                    type="text"
+                    value={formData.vendorName || ''}
+                    onChange={(e) => setFormData({...formData, vendorName: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900"
+                    placeholder="Ex: Fournisseur X"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone du vendeur</label>
+                  <input
+                    type="tel"
+                    value={formData.vendorPhone || ''}
+                    onChange={(e) => setFormData({...formData, vendorPhone: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900"
+                    placeholder="Ex: +237 690 000 000"
+                  />
+                </div>
               </div>
 
               <div>
@@ -237,6 +320,17 @@ useEffect(() => {
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900"
                   placeholder="Description détaillée du produit..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email du vendeur</label>
+                <input
+                  type="email"
+                  value={formData.vendorEmail || ''}
+                  onChange={(e) => setFormData({...formData, vendorEmail: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900"
+                  placeholder="contact@fournisseur.com"
                 />
               </div>
 
@@ -294,10 +388,10 @@ useEffect(() => {
                   <tr key={product._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <img 
-                        src={product.image} 
-                        alt={product.name}
-                        className="h-16 w-16 object-cover rounded"
-                      />
+                          src={(product.images && product.images[0]) || product.image}
+                          alt={product.name}
+                          className="h-16 w-16 object-cover rounded"
+                        />
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">{product.name}</div>
@@ -319,12 +413,17 @@ useEffect(() => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button
-                        onClick={() => handleDelete(product._id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
+                      <div className="flex items-center space-x-3">
+                        <button onClick={() => openEditForm(product)} className="text-blue-600 hover:text-blue-900">
+                          Éditer
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product._id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

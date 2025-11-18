@@ -1,27 +1,29 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Header from '@/components/Header'
 import { CheckCircle, Loader } from 'lucide-react'
 import { useCartStore } from '@/lib/cartStore'
 
-export default function CheckoutSuccessPage() {
+// Composant séparé pour useSearchParams
+function CheckoutSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const [currency, setCurrency] = useState('XAF')
   const [loading, setLoading] = useState(true)
   const [orderNumber, setOrderNumber] = useState('')
+  const [error, setError] = useState('')
   const clearCart = useCartStore((state) => state.clearCart)
-
-  useEffect(() => {
-    if (sessionId) {
-      verifyPayment()
-    }
-  }, [sessionId])
 
   const verifyPayment = async () => {
     try {
+      if (!sessionId) {
+        setError('Session ID manquant')
+        setLoading(false)
+        return
+      }
+
       const res = await fetch('/api/verify-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -34,18 +36,44 @@ export default function CheckoutSuccessPage() {
         setOrderNumber(data.orderNumber)
         clearCart()
       } else {
-        alert('Erreur lors de la vérification du paiement')
+        setError(data.error || 'Erreur lors de la vérification du paiement')
       }
     } catch (error) {
+      setError('Erreur de connexion')
       console.error('Erreur:', error)
     } finally {
       setLoading(false)
     }
   }
 
+  useEffect(() => {
+    verifyPayment()
+  }, [sessionId]) // ✅ verifyPayment maintenant stable
+
   const whatsappNumber = '237690000000'
   const whatsappMessage = `Bonjour, j'ai payé ma commande ${orderNumber} sur WINSHOP via Stripe`
   const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
+
+  // État d'erreur
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header currency={currency} setCurrency={setCurrency} />
+        <div className="max-w-2xl mx-auto px-4 py-20 text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-8">
+            <h2 className="text-2xl font-bold text-red-900 mb-4">Erreur</h2>
+            <p className="text-red-700 mb-4">{error}</p>
+            <button
+              onClick={() => router.push('/')}
+              className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition"
+            >
+              Retour à la boutique
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -104,5 +132,21 @@ export default function CheckoutSuccessPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Page principale avec Suspense
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="h-20 w-20 text-gray-400 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    }>
+      <CheckoutSuccessContent />
+    </Suspense>
   )
 }

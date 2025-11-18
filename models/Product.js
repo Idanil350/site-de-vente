@@ -25,11 +25,25 @@ const ProductSchema = new mongoose.Schema({
   },
   image: {
     type: String,
-    required: true,
+    // kept for backward compatibility, prefer `images` array
+  },
+  images: {
+    type: [String],
+    default: []
   },
   stock: {
     type: Number,
     default: 0,
+  },
+  // Optional vendor / contact details for the product
+  vendorName: {
+    type: String,
+  },
+  vendorPhone: {
+    type: String,
+  },
+  vendorEmail: {
+    type: String,
   },
   createdAt: {
     type: Date,

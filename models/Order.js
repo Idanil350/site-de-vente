@@ -36,7 +36,12 @@ const OrderSchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    default: 'XAF',
+    default: 'EUR',
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['whatsapp', 'stripe'],
+    default: 'whatsapp',
   },
   status: {
     type: String,

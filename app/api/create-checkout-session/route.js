@@ -1,11 +1,21 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import parseJson from '@/lib/safeRequest'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+// Do NOT initialize Stripe at module load time because Next.js may import this
+// module during build/data collection when environment variables are not set.
+// Initialize inside the handler to avoid build-time errors when `STRIPE_SECRET_KEY`
+// is not provided (local dev or CI environments).
 
 export async function POST(request) {
   try {
-    const { items, orderData } = await request.json()
+    const body = await parseJson(request)
+
+    if (!body) {
+      return NextResponse.json({ error: 'Empty request body' }, { status: 400 })
+    }
+
+    const { items, orderData } = body
 
     const lineItems = items.map(item => ({
       price_data: {
@@ -19,6 +29,14 @@ export async function POST(request) {
       },
       quantity: item.quantity,
     }))
+
+    const stripeSecret = process.env.STRIPE_SECRET_KEY
+    if (!stripeSecret) {
+      console.error('Stripe secret key not configured (STRIPE_SECRET_KEY)')
+      return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
+    }
+
+    const stripe = new Stripe(stripeSecret)
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],

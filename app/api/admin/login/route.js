@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
+import parseJson from '@/lib/safeRequest'
 
-const ADMIN_PASSWORD = 'winshop2025'
+// Read admin password from env for production; keep fallback for local/dev convenience
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'winshop2025'
 
 export async function POST(request) {
   try {
-    const { password } = await request.json()
+    const body = await parseJson(request)
+
+    if (!body) return NextResponse.json({ success: false, error: 'Empty body' }, { status: 400 })
+
+    const { password } = body
 
     if (password === ADMIN_PASSWORD) {
       const response = NextResponse.json({ success: true })

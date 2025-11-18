@@ -257,7 +257,9 @@ export default function Home() {
           <p className="text-xl text-gray-300 mb-8">
             Profitez de nos offres exceptionnelles et de notre service client de qualité
           </p>
-          <button className="bg-white text-gray-900 px-10 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-all transform hover:scale-105 shadow-lg">
+          <button 
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="bg-white text-gray-900 px-10 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-all transform hover:scale-105 shadow-lg">
             Commencer mes achats
           </button>
         </div>
