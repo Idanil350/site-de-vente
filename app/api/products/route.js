@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/mongoose'
 import Product from '@/models/Product'
 import parseJson from '@/lib/safeRequest'
+import { requireAdmin } from '@/lib/adminAuth'
 
 export async function GET() {
   try {
@@ -15,6 +16,10 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    // Require admin cookie for product creation
+    const authCheck = await requireAdmin()
+    if (authCheck) return authCheck
+
     await dbConnect()
     const body = await parseJson(request)
 

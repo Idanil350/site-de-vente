@@ -2,9 +2,14 @@
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import parseJson from '@/lib/safeRequest'
+import { requireAdmin } from '@/lib/adminAuth'
 
 export async function GET() {
   try {
+    // Require admin cookie to list orders
+    const authCheck = await requireAdmin()
+    if (authCheck) return authCheck
+
     const client = await clientPromise
     const db = client.db('winshop')
     const orders = await db.collection('orders').find({}).toArray()

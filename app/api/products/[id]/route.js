@@ -2,9 +2,14 @@ import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/mongoose'
 import Product from '@/models/Product'
 import parseJson from '@/lib/safeRequest'
+import { requireAdmin } from '@/lib/adminAuth'
 
 export async function DELETE(request, { params }) {
   try {
+    // Require admin cookie for deletions
+    const authCheck = await requireAdmin()
+    if (authCheck) return authCheck
+
     await dbConnect()
     let { id } = params || {}
 
@@ -54,6 +59,10 @@ export async function DELETE(request, { params }) {
 
 export async function PATCH(request, { params }) {
   try {
+    // Require admin cookie for updates
+    const authCheck = await requireAdmin()
+    if (authCheck) return authCheck
+
     await dbConnect()
     let { id } = params || {}
 

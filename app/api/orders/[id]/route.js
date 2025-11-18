@@ -3,9 +3,13 @@ import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
 import parseJson from '@/lib/safeRequest'
+import { requireAdmin } from '@/lib/adminAuth'
 
 export async function PATCH(request, context) {
   try {
+    const authCheck = await requireAdmin()
+    if (authCheck) return authCheck
+
     const params = await context.params
     const { id } = params
     const body = await parseJson(request)
@@ -38,6 +42,9 @@ export async function PATCH(request, context) {
 
 export async function DELETE(request, context) {
   try {
+    const authCheck = await requireAdmin()
+    if (authCheck) return authCheck
+
     const params = await context.params
     const { id } = params
 
