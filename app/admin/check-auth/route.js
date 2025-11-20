@@ -9,3 +9,5 @@ export async function GET() {
     authenticated: authCookie?.value === 'authenticated' 
   })
 }
+
+
